@@ -7,6 +7,9 @@ package edu.temple.cis.c3238.banksim;
  * @author Modified by Alexa Delacenserie
  * @author Modified by Tarek Elseify
  */
+
+
+//this is a test comment for purposes of making a commit to git
 public class Account {
 
     private volatile int balance;
