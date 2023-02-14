@@ -24,6 +24,7 @@ public class BankSimMain {
         System.out.printf("%-30s Bank transfer is in process.\n", Thread.currentThread().toString());
 
         // Wait for all threads to complete execution.
+        // using for loop for  thread execution
         for(Thread thread : threads) {
             thread.join();
         }
