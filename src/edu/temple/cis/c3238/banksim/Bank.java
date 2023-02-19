@@ -33,16 +33,21 @@ public class Bank {
         boolean completed = false;
     //lock to allow threads to run mutually exclusively and reenter multiple times
         while (!completed) {
+            //loops until transaction is completed successfully
                 if (transferLock.tryLock()) {
+                    //if lock available
                     if (accounts[from].withdraw(amount)) {
+                        //done this way to call withdraw and make sure deposit only done when there is a withdraw.
                         accounts[to].deposit(amount);
                         completed = true;
+                        //transaction complete
                     }
                     transferLock.unlock();
+                    //free the lock up for another thread.
                 }
         }
 
-        //This line of code is for testing
+        //This line of code is for testing, currently uncommented for testing.
         if (shouldTest()) test();
     }
 
