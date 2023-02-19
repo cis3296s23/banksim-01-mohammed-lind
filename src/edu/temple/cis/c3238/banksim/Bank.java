@@ -31,9 +31,8 @@ public class Bank {
     public void transfer(int from, int to, int amount) {
         ReentrantLock transferLock = new ReentrantLock();
         boolean completed = false;
-
+    //lock to allow threads to run mutually exclusively and reenter multiple times
         while (!completed) {
-            if (transferLock.tryLock()) {
                 if (transferLock.tryLock()) {
                     if (accounts[from].withdraw(amount)) {
                         accounts[to].deposit(amount);
@@ -41,12 +40,10 @@ public class Bank {
                     }
                     transferLock.unlock();
                 }
-                transferLock.unlock();
-            }
         }
 
         //This line of code is for testing
-        //if (shouldTest()) test();
+        if (shouldTest()) test();
     }
 
     public void test() {
