@@ -15,10 +15,9 @@ public class Account {
     private volatile int balance;
     private final int id;
      private Bank bankaccount;
-    public Account(int id, int initialBalance,Bank bankaccount) {
+    public Account(int id, int initialBalance) {
         this.id = id;
         this.balance = initialBalance;
-        this.bankaccount = bankaccount;
     }
 
     public int getBalance() {

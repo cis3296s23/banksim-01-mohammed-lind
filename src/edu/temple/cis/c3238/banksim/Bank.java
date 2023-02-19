@@ -1,4 +1,5 @@
 package edu.temple.cis.c3238.banksim;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author Cay Horstmann
@@ -7,6 +8,7 @@ package edu.temple.cis.c3238.banksim;
  * @author Modified by Alexa Delacenserie
  * @author Modified by Tarek Elseify
  */
+
 
 public class Bank {
 
@@ -27,12 +29,24 @@ public class Bank {
     }
 
     public void transfer(int from, int to, int amount) {
-        if (accounts[from].withdraw(amount)) {
-            accounts[to].deposit(amount);
+        ReentrantLock transferLock = new ReentrantLock();
+        boolean completed = false;
+
+        while (!completed) {
+            if (transferLock.tryLock()) {
+                if (transferLock.tryLock()) {
+                    if (accounts[from].withdraw(amount)) {
+                        accounts[to].deposit(amount);
+                        completed = true;
+                    }
+                    transferLock.unlock();
+                }
+                transferLock.unlock();
+            }
         }
-        
-        // Uncomment line when ready to start Task 3.
-        // if (shouldTest()) test();
+
+        //This line of code is for testing
+        //if (shouldTest()) test();
     }
 
     public void test() {
