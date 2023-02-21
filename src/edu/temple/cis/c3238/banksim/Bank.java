@@ -18,7 +18,7 @@ public class Bank {
     private long numTransactions = 0;
     private final int initialBalance;
     private final int numAccounts;
-
+    public boolean testing;
     AtomicInteger counter;
     private boolean closed;
 
@@ -33,7 +33,7 @@ public class Bank {
     }
 
     public void transfer(int from, int to, int amount) {
-        ReentrantLock transferLock = new ReentrantLock();
+       /* ReentrantLock transferLock = new ReentrantLock();
         boolean completed = false;
         //lock to allow threads to run mutually exclusively and reenter multiple times
         while (!completed) {
@@ -48,12 +48,57 @@ public class Bank {
                 }
                 transferLock.unlock();
                 //free the lock up for another thread.
+            }*/
+            synchronized (this) {
+                if (testing && !closed) { // If testing and not closed, wait
+                    synchronized (this) {
+                        try {
+                            wait();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                } else if (!testing && !closed) { // Time to transfer, counters give mutual exclusion
+                    incCounter(); // Increment atomic transfer counter
+                    if (accounts[from].withdraw(amount)) {
+                        accounts[to].deposit(amount);
+                    }
+                    decCounter(); // Decrement atomic transfer counter
+                    notifyAll();
+                } else { // Closed
+                    return;
+                }
+            }
+
+            //Thread.yield();
+
+            if (shouldTest() && !closed) { // If shouldTest() and not closed, then work on testing
+                synchronized (this) {
+                    testing = true; // Time to test
+                    while (counter.get() > 0) { // Wait until transfers finish
+                        try {
+                            wait();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    TestThread test = new TestThread();
+                    try { // Start test thread + start test
+                        test.join();
+                        test.start();
+                        //Thread.currentThread().toString();
+                        test.runTest(this);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    testing = false; // Test over
+                    notifyAll(); // Wake up waiting threads
+                    //test();
+                }
             }
         }
-
         //This line of code is for testing, currently uncommented for testing.
-        if (shouldTest()) test();
-    }
+
 
     public void test() {
         int totalBalance = 0;
@@ -103,6 +148,17 @@ public class Bank {
         for (Account account : accounts) {
             synchronized (account) {
                 account.notifyAll();
+            }
+        }
+    }
+    public boolean isOpen() {
+        return !closed;
+    }
+    // Test thread
+    private class TestThread extends Thread {
+        public void runTest(Bank b) {
+            if (b.isOpen()) {
+                b.test();
             }
         }
     }
