@@ -1,6 +1,7 @@
 package edu.temple.cis.c3238.banksim;
 import java.util.concurrent.locks.ReentrantLock;
-
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 /**
  * @author Cay Horstmann
  * @author Modified by Paul Wolfgang
@@ -18,6 +19,9 @@ public class Bank {
     private final int initialBalance;
     private final int numAccounts;
 
+    AtomicInteger counter;
+    private boolean closed;
+
     public Bank(int numAccounts, int initialBalance) {
         this.initialBalance = initialBalance;
         this.numAccounts = numAccounts;
@@ -31,20 +35,20 @@ public class Bank {
     public void transfer(int from, int to, int amount) {
         ReentrantLock transferLock = new ReentrantLock();
         boolean completed = false;
-    //lock to allow threads to run mutually exclusively and reenter multiple times
+        //lock to allow threads to run mutually exclusively and reenter multiple times
         while (!completed) {
             //loops until transaction is completed successfully
-                if (transferLock.tryLock()) {
-                    //if lock available
-                    if (accounts[from].withdraw(amount)) {
-                        //done this way to call withdraw and make sure deposit only done when there is a withdraw.
-                        accounts[to].deposit(amount);
-                        completed = true;
-                        //transaction complete
-                    }
-                    transferLock.unlock();
-                    //free the lock up for another thread.
+            if (transferLock.tryLock()) {
+                //if lock available
+                if (accounts[from].withdraw(amount)) {
+                    //done this way to call withdraw and make sure deposit only done when there is a withdraw.
+                    accounts[to].deposit(amount);
+                    completed = true;
+                    //transaction complete
                 }
+                transferLock.unlock();
+                //free the lock up for another thread.
+            }
         }
 
         //This line of code is for testing, currently uncommented for testing.
@@ -54,7 +58,7 @@ public class Bank {
     public void test() {
         int totalBalance = 0;
         for (Account account : accounts) {
-            System.out.printf("%-30s %s%n", 
+            System.out.printf("%-30s %s%n",
                     Thread.currentThread().toString(), account.toString());
             totalBalance += account.getBalance();
         }
@@ -70,10 +74,36 @@ public class Bank {
     public int getNumAccounts() {
         return numAccounts;
     }
-    
-    
+
+
     public boolean shouldTest() {
         return ++numTransactions % NTEST == 0;
     }
 
+    // Increments the atomic counter
+    synchronized void incCounter() {
+        counter.getAndIncrement();
+    }
+
+    // Decrements the atomic counter
+    synchronized void decCounter() {
+        counter.getAndDecrement();
+    }
+
+    // Returns the number of transactions
+    public long getNumTransactions() {
+        return numTransactions;
+    }
+
+    // Closes bank
+    void closeBank() {
+        synchronized (this) {
+            closed = true;
+        }
+        for (Account account : accounts) {
+            synchronized (account) {
+                account.notifyAll();
+            }
+        }
+    }
 }
