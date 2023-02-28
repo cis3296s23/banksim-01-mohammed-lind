@@ -23,7 +23,11 @@ class TransferThread extends Thread {
         for (int i = 0; i < 10000; i++) {
             int toAccount = (int) (bank.getNumAccounts() * Math.random());
             int amount = (int) (maxAmount * Math.random());
-            bank.transfer(fromAccount, toAccount, amount);
+            try {
+                bank.transfer(fromAccount, toAccount, amount);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         System.out.printf("%-30s Account[%d] has finished with its transactions.\n", Thread.currentThread().toString(), fromAccount);

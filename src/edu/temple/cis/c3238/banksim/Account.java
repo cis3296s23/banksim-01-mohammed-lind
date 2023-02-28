@@ -14,10 +14,13 @@ public class Account {
 
     private volatile int balance;
     private final int id;
+
+    private Bank currentBank;
      private Bank bankaccount;
-    public Account(int id, int initialBalance) {
+    public Account(int id, int initialBalance, Bank currentBank) {
         this.id = id;
         this.balance = initialBalance;
+        this.currentBank=currentBank;
     }
 
     public int getBalance() {
@@ -41,6 +44,7 @@ public class Account {
         // Thread.yield();   // Try to force collision
         int newBalance = currentBalance + amount;
         balance = newBalance;
+        notifyAll();
     }
     
     @Override

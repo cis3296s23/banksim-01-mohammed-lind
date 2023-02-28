@@ -1,7 +1,10 @@
 package edu.temple.cis.c3238.banksim;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.Semaphore;
+//needed for ReentrantLock; the lock used for thread protection
+import java.util.concurrent.locks.Condition;
+//added to support creating a new test thread
 import java.util.concurrent.atomic.AtomicInteger;
+//added to fix problem with integer not being Thread Safe; atomic Integer should be a Thread Safe Equivalent
 /**
  * @author Cay Horstmann
  * @author Modified by Paul Wolfgang
@@ -27,77 +30,68 @@ public class Bank {
         this.numAccounts = numAccounts;
         accounts = new Account[numAccounts];
         for (int i = 0; i < accounts.length; i++) {
-            accounts[i] = new Account(i, initialBalance);
+            accounts[i] = new Account(i, initialBalance, this);
         }
         numTransactions = 0;
+        counter= new AtomicInteger();
+        testing=false;
+        closed=false;
+
     }
 
-    public void transfer(int from, int to, int amount) {
-       /* ReentrantLock transferLock = new ReentrantLock();
-        boolean completed = false;
-        //lock to allow threads to run mutually exclusively and reenter multiple times
-        while (!completed) {
-            //loops until transaction is completed successfully
-            if (transferLock.tryLock()) {
-                //if lock available
-                if (accounts[from].withdraw(amount)) {
-                    //done this way to call withdraw and make sure deposit only done when there is a withdraw.
-                    accounts[to].deposit(amount);
-                    completed = true;
-                    //transaction complete
-                }
-                transferLock.unlock();
-                //free the lock up for another thread.
-            }*/
-            synchronized (this) {
-                if (testing && !closed) { // If testing and not closed, wait
-                    synchronized (this) {
-                        try {
-                            wait();
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                } else if (!testing && !closed) { // Time to transfer, counters give mutual exclusion
-                    incCounter(); // Increment atomic transfer counter
-                    if (accounts[from].withdraw(amount)) {
-                        accounts[to].deposit(amount);
-                    }
-                    decCounter(); // Decrement atomic transfer counter
-                    notifyAll();
-                } else { // Closed
-                    return;
-                }
-            }
+    private final ReentrantLock transferLock = new ReentrantLock();
+    //lock for Transfer; locking @ transfer level
+    private final Condition transferCompleted = transferLock.newCondition();
+    //condition to signal transfer is complete
 
-            //Thread.yield();
-
-            if (shouldTest() && !closed) { // If shouldTest() and not closed, then work on testing
-                synchronized (this) {
-                    testing = true; // Time to test
-                    while (counter.get() > 0) { // Wait until transfers finish
-                        try {
-                            wait();
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    TestThread test = new TestThread();
-                    try { // Start test thread + start test
-                        test.join();
-                        test.start();
-                        //Thread.currentThread().toString();
-                        test.runTest(this);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    testing = false; // Test over
-                    notifyAll(); // Wake up waiting threads
-                    //test();
-                }
+    public void transfer(int from, int to, int amount) throws InterruptedException {
+        transferLock.lock();
+        //acquire lock for transfer
+        try {
+            while (testing){
+                // Wait for testing to finish
+                transferCompleted.await();
             }
+            incCounter();
+            //increment transfer Counter
+            if (accounts[from].withdraw(amount)) {
+                accounts[to].deposit(amount);
+                //withdraw and deposit "amount" done this way to only deposit when withdraw is successful
+            }
+            decCounter();
+            //decrement counter after transaction
+            transferCompleted.signalAll(); // Notify waiting threads
+            //notify waiting threads that transfer is completed
+        } finally {
+            transferLock.unlock();
+            //release the lock for other transfers
         }
-        //This line of code is for testing, currently uncommented for testing.
+    }
+
+    public void runTests() throws InterruptedException {
+        transferLock.lock();
+        //acquire lock for testing
+        try {
+            testing = true;
+            //testing flag
+            while (counter.get() > 0) {
+                // Wait for transfers to finish
+                transferCompleted.await();
+            }
+            TestThread test = new TestThread();
+            //create new test thread
+            test.start();
+            test.runTest(this);
+            //run test using created thread
+            testing = false;
+            //test flag set to false; should happen after testing finished
+            transferCompleted.signalAll(); // Notify waiting threads
+            //notify threads that testing done
+        } finally {
+            transferLock.unlock();
+            //release the lock obtained for testing
+        }
+    }
 
 
     public void test() {
@@ -110,9 +104,11 @@ public class Bank {
         System.out.printf("%-30s Total balance: %d\n", Thread.currentThread().toString(), totalBalance);
         if (totalBalance != numAccounts * initialBalance) {
             System.out.printf("%-30s Total balance changed!\n", Thread.currentThread().toString());
+            //if we get this statement, race condition NOT RESOLVED
             System.exit(0);
         } else {
             System.out.printf("%-30s Total balance unchanged.\n", Thread.currentThread().toString());
+            //this message is a "success" NOTE: Run the program multiple times; race conditions may only become apparent after multiple runs
         }
     }
 
