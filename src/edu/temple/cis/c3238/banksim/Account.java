@@ -15,8 +15,9 @@ public class Account {
     private volatile int balance;
     private final int id;
 
+    volatile int insufficientFunds=0;
+
     private Bank currentBank;
-     private Bank bankaccount;
     public Account(int id, int initialBalance, Bank currentBank) {
         this.id = id;
         this.balance = initialBalance;
@@ -28,14 +29,22 @@ public class Account {
     }
 
     public synchronized boolean withdraw(int amount) {
-        if (amount <= balance) {
-            int currentBalance = balance;
-            // Thread.yield(); // Try to force collision
-            int newBalance = currentBalance - amount;
-            balance = newBalance;
-            return true;
-        } else {
+
+        synchronized(this) {
+            if (amount > balance) {
+                insufficientFunds=1;
+            }
+            //checks to see if amount is greater than the balance, if so changes protected variable to 1
+            if(insufficientFunds == 0){
+                //all for withdraw if sufficient funds
+                int currentBalance = balance;
+                // Thread.yield(); // Try to force collision
+                int newBalance = currentBalance - amount;
+                balance = newBalance;
+                return true;
+            }
             return false;
+            //funds were not sufficient
         }
     }
 
@@ -45,6 +54,7 @@ public class Account {
         int newBalance = currentBalance + amount;
         balance = newBalance;
         notifyAll();
+        //wake all threads
     }
     
     @Override

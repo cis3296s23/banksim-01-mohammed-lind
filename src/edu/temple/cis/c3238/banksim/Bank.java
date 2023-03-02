@@ -23,7 +23,7 @@ public class Bank {
     private final int numAccounts;
     public boolean testing;
     AtomicInteger counter;
-    private boolean closed;
+    private volatile boolean closed;
 
     public Bank(int numAccounts, int initialBalance) {
         this.initialBalance = initialBalance;
@@ -140,6 +140,7 @@ public class Bank {
     void closeBank() {
         synchronized (this) {
             closed = true;
+            //close bank
         }
         for (Account account : accounts) {
             synchronized (account) {
@@ -147,9 +148,12 @@ public class Bank {
             }
         }
     }
+
+
     public boolean isOpen() {
         return !closed;
     }
+    //closes bank using volatile boolean
     // Test thread
     private class TestThread extends Thread {
         public void runTest(Bank b) {
