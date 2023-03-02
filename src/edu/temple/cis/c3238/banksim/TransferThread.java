@@ -20,7 +20,8 @@ class TransferThread extends Thread {
 
     @Override
     public void run() {
-        for (int i = 0; i < 10000; i++) {
+        for (int i = 0; i < 10000&&bank.isOpen(); i++) {
+            //added bankisOpen to stop transfers when the protected variable is false
             int toAccount = (int) (bank.getNumAccounts() * Math.random());
             int amount = (int) (maxAmount * Math.random());
             try {
@@ -29,7 +30,8 @@ class TransferThread extends Thread {
                 throw new RuntimeException(e);
             }
         }
-
+        bank.closeBank();
+        //close bank when a thread has completed
         System.out.printf("%-30s Account[%d] has finished with its transactions.\n", Thread.currentThread().toString(), fromAccount);
     }
 }
